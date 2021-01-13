@@ -1,0 +1,140 @@
+---
+title: "Linear models list 1"
+author: "Klaudia Weigel"
+output: 
+  pdf_document: 
+    fig_caption: yes
+    highlight: tango
+    number_sections: yes
+
+header_includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{amsthm}
+  - \usepackage{listings}
+  - \theoremstyle{definition}
+---
+
+\newtheorem{thm}{Theorem}
+\newtheorem{defin}{Definition}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mvtnorm)
+```
+
+# Exercise 1
+*Use a rnorm function (in R) to generate 100 random vectors from a two dimensional normal distribution $N(0; I)$ and plot them.*
+
+We will generate 200 random variables from the standard normal distribution and divide them into two columns. We can compare the results with a built in function $\texttt{rmvnorm}$ from the *mvtnorm* library.
+
+```{r, fig.height=3.5}
+set.seed(9)
+par(mfrow = c(1,2))
+X = matrix(rnorm(100 * 2, 0, 1), ncol = 2)
+plot(X, pch = 19, col = 'coral')
+X_2 = rmvnorm(100, mean=c(0,0), sigma = diag(2))
+plot(X_2, pch = 19, col = 'lightblue')
+```
+
+
+# Exercise 2
+*Find an affine transformation, which transforms above cloud of points into a cloud of points from a normal distribution $N(\mu, \Sigma)$.*  
+
+Affine transformation has the form $Y = AX + B$.
+\begin{thm}
+Suppose X $\in \mathbb{R}^n$ has a multivariate normal distribution $N_n(\mu, \Sigma)$. Let $Y = AX + b$, where A is a $m \times n$ matrix and $b \in \mathbb{R}^m$. Then Y has a $N_m(A\mu + b, A \Sigma A^T)$ distribution.
+\end{thm}
+
+\begin{defin}
+A matrix $A \in \mathbb{R}^{n \times n}$ is symmetric positive-definite if and only if it is symmetric ($A = A^T$) and for every nonzero vector $x \in \mathbb{R}^n$ it is true that $x^TAx > 0$.
+\end{defin}
+
+\begin{thm}[Cholesky Factorization Theorem] 
+Given a symmetric positive definite matrix $A$ there exists a lower triangular matrix $L$ such that $A = LL^T$. Such a decomposition is unique if the diagonal elements of $L$ are restricted to be
+positive.
+\end{thm}
+
+A covariance matrix is always semi positive definite ($x^TAx \geq 0$) and is positive define if all the columns of the matrix are linearly independent, which is the case in our exercise.
+
+In the exercise we have $\mu = A \cdot 0 + b = b$ and $\Sigma = A I A^T = A A^T$. The second equation is satisfied by the Cholesky factor, which we can find with a built in function $\texttt{chol}$.
+ 
+a) $\mu = (4, 2)$, $\Sigma = \begin{pmatrix} 1 & 0.9 \\ 0.9 & 1 \end{pmatrix}$.
+
+```{r, fig.height=3}
+affine_transformation =  function(X, A, b) {
+  return(A %*% X + b)
+}
+
+apply_and_plot = function(X, Sigma, b) {
+  par(mfrow = c(1,2), mgp=c(3,0.5,0),mar=c(5,4,4,2)+0.1)
+  # chol finds an upper traingular matrix, so we have to transpose it
+  A = t(chol(Sigma)) # Sigma = AA^T
+  
+  # Apply an affine transformation to the original cloud of points
+  Y = t(apply(X, MARGIN = 1, FUN = affine_transformation, A = A, b = b))
+  plot(Y, xlab = "Y1", ylab = "Y2", pch=19, 
+       cex.main = 0.5, cex.lab = 0.5, cex.axis = 0.5,
+       col="coral", main = "Affine transformation")
+  
+  # Check the results using the rmvnorm function
+  Y_check = rmvnorm(n=100, mean = b, sigma = Sigma)
+  plot(Y_check, xlab = "Y1", ylab = "Y2", pch=19,  
+       cex.main = 0.5, cex.lab = 0.5, cex.axis = 0.5,
+       col="lightblue", main = "Rmvnorm check")
+}
+
+S_a = matrix(c(1, 0.9,  0.9, 1), nrow = 2, byrow = TRUE)
+b = c(4, 2)
+apply_and_plot(X, S_a, b)
+```
+
+\newpage
+
+b) $\mu = (4, 2)$, $\Sigma = \begin{pmatrix} 1 & -0.9 \\ -0.9 & 1 \end{pmatrix}$.
+
+```{r, fig.height=3}
+S_b = matrix(c(1, -0.9,  -0.9, 1), nrow = 2, byrow = TRUE)
+b = c(4, 2)
+apply_and_plot(X, S_b, b)
+```
+
+c) $\mu = (4, 2)$, $\Sigma = \begin{pmatrix} 9 & 0 \\ 0 & 1 \end{pmatrix}$.
+
+```{r, fig.height=3}
+S_c = matrix(c(9, 0,  0, 1), nrow = 2, byrow = TRUE)
+b = c(4, 2)
+apply_and_plot(X, S_c, b)
+```
+
+\newpage
+
+# Exercise 3
+*Use a rnorm function (in R) to generate 200 random vectors from a multivariate normal distribution $N(0, I_{100 \times 100})$. Insert them into a matrix $X_{200 \times 100}$. Construct a matrix A, such that rows of a matrix $\tilde{X} = XA$ contains 200 vectors from a multivariate normal distribution $N(0,\Sigma_{100 \times 100})$, where $\Sigma(i, i) = 1$ and $\Sigma(i, j) = 0.9$ for $i \neq j$. In order to verify your solution, calculate a sample variance{covariance matrix. Next, on its basis, plot a histogram of obtained sample variances and calculate their mean. Do the same for sample covariances.*  
+
+For a random vector $X = (X_1,..., X_n)^T$, we define a covariance matrix as $\Sigma^X(i, j) = Cov(X_i, X_j) = E[X_iX_j] - E[X_i]E[X_j]$, where $\Sigma^X \in \mathbb{R}^{n \times n}$. Sample covariance between two vectors is calculated from the formula $Cov(X, Y) = \frac{1}{n-1}\sum_{i=1}^n (X_i - \bar{X})(Y_i -\bar{Y})$. A built in function $\texttt{cov}$ calculates the covariance between columns if given a matrix, which we will use here.
+
+```{r, fig.height=3} 
+X = matrix(rnorm(200 * 100, 0, 1), ncol = 100)
+Sigma = diag(nrow = 100, ncol = 100)
+Sigma[lower.tri(Sigma)] = 0.9
+Sigma[upper.tri(Sigma)] = 0.9
+# We don't transpose because the transformation is XA
+A = chol(Sigma)
+X_tilde = X %*% A
+
+cov_matrix = cov(X_tilde)
+par(mfrow = c(1,2))
+hist(diag(cov_matrix),
+     cex.main = 0.6, cex.lab = 0.5, cex.axis = 0.5,
+     main = "Sample variance")
+hist(cov_matrix[upper.tri(cov_matrix)],
+     cex.main = 0.6, cex.lab = 0.5, cex.axis = 0.5,
+     main = "Sample covariance")
+mean(diag(cov_matrix))
+mean(cov_matrix[upper.tri(cov_matrix)])
+```
+
+We see that the variances they lie close to 1 and the covariances lie close 0.9. 
+
+
